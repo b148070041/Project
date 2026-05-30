@@ -1,0 +1,1445 @@
+<!doctype html>
+<html lang="zh-Hant" class="h-full bg-slate-950 text-slate-100">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>高齡者兩階段床緣起身人體工學模擬器</title>
+    <!-- Google Fonts & Tailwind CSS CDN -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'Outfit', 'system-ui', 'sans-serif'],
+              mono: ['JetBrains Mono', 'SFMono-Regular', 'monospace'],
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Custom styled sliders */
+      input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        background: #1e293b;
+        height: 6px;
+        border-radius: 9999px;
+        outline: none;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #3b82f6;
+        cursor: pointer;
+        border: 2px solid #ffffff;
+        transition: transform 0.1s ease-in-out;
+      }
+      input[type="range"]::-webkit-slider-thumb:hover {
+        transform: scale(1.2);
+        background: #60a5fa;
+      }
+      .glass-panel {
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+      @keyframes bounceSubtle {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+      }
+      .animate-bounce-subtle {
+        animation: bounceSubtle 2s infinite ease-in-out;
+      }
+    </style>
+  </head>
+  <body class="h-full font-sans antialiased flex flex-col justify-between">
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur px-6 py-4">
+      <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-blue-600/10 text-blue-400 rounded-lg border border-blue-500/20">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold tracking-tight text-white">高齡者床緣兩階段起身人體工學模擬器</h1>
+            <p class="text-xs text-slate-400 mt-0.5">Biomechanical Elder Rise Simulator（高規格安全法規驗證版）</p>
+          </div>
+        </div>
+        <div id="connectionStatus" class="flex items-center gap-2 text-xs bg-emerald-950/40 text-emerald-400 px-3 py-1.5 rounded-full border border-emerald-500/20 font-mono shadow-sm">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <span>● 狀態判定: 初始就緒</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start overflow-y-auto">
+      <!-- Left Column: Simulation Board -->
+      <section class="lg:col-span-7 flex flex-col gap-4">
+        <!-- SVG Canvas Wrapper -->
+        <div class="relative w-full aspect-[64/46] bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden group">
+          <!-- Live 3D SVG Viewport -->
+          <svg id="simSvg" viewBox="0 0 640 460" class="w-full h-full">
+            <!-- Dynamic SVG elements rendered by JS -->
+          </svg>
+
+          <!-- Floating Clinical Data Panel -->
+          <div id="dataPanel" class="absolute top-4 right-4 glass-panel border border-slate-700/60 rounded-xl p-3.5 w-64 shadow-2xl z-10 pointer-events-none transition-all duration-300 font-mono text-[11px] text-slate-200 leading-relaxed space-y-2">
+            <!-- Dynamically populated by JS depending on active stage -->
+          </div>
+
+          <!-- Floating Status Notification Banner -->
+          <div id="notificationBanner" class="absolute top-4 left-4 right-4 bg-slate-950/90 border border-slate-800 p-3 rounded-xl shadow-2xl transition-all duration-300 opacity-0 pointer-events-none transform -translate-y-2 z-20 flex items-center gap-3">
+            <div id="notificationIcon" class="p-1.5 rounded-lg"></div>
+            <div id="notificationText" class="text-xs font-medium text-slate-200"></div>
+          </div>
+          
+          <!-- Animation Progress Indicator (Fills bottom edge) -->
+          <div class="absolute bottom-0 left-0 right-0 h-1 bg-slate-800">
+            <div id="progressTrack" class="h-full bg-blue-500 transition-all duration-75" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Simulation Controllers Panel (Clinical Double Buttons) -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex flex-col gap-4 shadow-lg">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800/60 pb-2">
+            🧪 床邊兩階段起身安全測試檢驗 (Clinical Biomechanical Safety Test)
+          </h3>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <!-- Button 1: Stage 1 test -->
+            <button id="btnTestStage1" class="flex items-center justify-center gap-2 px-6 py-3.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md transition-all outline-none">
+              <span>🔘 階段一：側臥坐起測試</span>
+            </button>
+            
+            <!-- Button 2: Stage 2 test (Locked initially) -->
+            <button id="btnTestStage2" disabled class="flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-850/40 text-slate-500 text-xs font-semibold rounded-xl border border-slate-800/80 cursor-not-allowed transition-all opacity-60 outline-none">
+              <span>🔒 階段二：坐姿起立測試 (等階段一完成)</span>
+            </button>
+          </div>
+
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-400 mt-1 pt-1 border-t border-slate-800/40">
+            <div class="flex items-center gap-4">
+              <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
+                <input type="checkbox" id="chkAutoFail" class="w-4 h-4 bg-slate-800 border-slate-700 rounded text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900" checked />
+                <span>規格不符強制起座失敗 (Auto-Fail Tracking)</span>
+              </label>
+            </div>
+            
+            <button id="btnResetAll" class="text-slate-300 hover:text-white font-medium flex items-center gap-1 transition-colors">
+              <span>↺ 重置整體測試狀態</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Interactive Parameter Settings & Guidelines -->
+      <section class="lg:col-span-5 flex flex-col gap-6">
+        <!-- Stage switching Tab Header -->
+        <div class="bg-slate-900 p-1.5 border border-slate-800 rounded-xl flex gap-1 shadow-md">
+          <button id="tabStage1" class="flex-1 py-2.5 text-center text-xs font-bold rounded-lg transition-all outline-none bg-blue-600 text-white">
+            第一階段：床緣側臥起座 ➜
+          </button>
+          <button id="tabStage2" class="flex-1 py-2.5 text-center text-xs font-bold rounded-lg transition-all outline-none text-slate-400 hover:text-slate-200">
+            第二階段：床緣重心起立 ➜
+          </button>
+        </div>
+
+        <!-- Sliders Board (Config panels) -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col gap-5">
+          <h2 class="text-sm font-bold text-white tracking-wide border-b border-slate-800 pb-2.5 flex items-center justify-between">
+            <span>輔具與人體工學參數調整</span>
+            <span id="activeStageLabel" class="text-[10px] font-mono text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-md bg-blue-500/5">階段 1 參數</span>
+          </h2>
+
+          <!-- Common Slider: Height -->
+          <div class="flex flex-col gap-2">
+            <div class="flex justify-between items-center text-xs">
+              <span class="font-medium text-slate-300 flex items-center gap-1">
+                高齡者大眾身高 (H)
+              </span>
+              <span class="font-mono text-blue-400 font-bold"><span id="valHeight">165</span> cm</span>
+            </div>
+            <input type="range" id="sliderHeight" min="150" max="190" value="165" />
+            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>長度小於 155cm</span>
+              <span>170cm</span>
+              <span>長度大於 185cm</span>
+            </div>
+          </div>
+
+          <!-- Common Slider: Bed Height -->
+          <div class="flex flex-col gap-2">
+            <div class="flex justify-between items-center text-xs">
+              <span class="font-medium text-slate-300">床面高度 (床高)</span>
+              <span class="font-mono text-blue-400 font-bold"><span id="valBedHeight">43</span> cm</span>
+            </div>
+            <input type="range" id="sliderBedHeight" min="25" max="65" value="43" />
+            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>低床 25cm (深屈壓)</span>
+              <span>中床 43cm (宜起立)</span>
+              <span>高床 65cm (代償傾)</span>
+            </div>
+          </div>
+
+          <!-- Stage 1 Specific Slider -->
+          <div id="groupStage1Sliders" class="slider-group flex flex-col gap-5 border-t border-slate-800/50 pt-4">
+            <div class="flex flex-col gap-2">
+              <div class="flex justify-between items-center text-xs">
+                <span class="font-medium text-slate-300 flex items-center gap-1">
+                  側邊省力旋轉手拉把角度
+                  <span class="text-[10px] text-amber-500">(1 階撐體關鍵)</span>
+                </span>
+                <span class="font-mono text-blue-400 font-bold"><span id="valAngle">90</span>°</span>
+              </div>
+              <input type="range" id="sliderAngle" min="30" max="130" value="90" />
+              <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                <span>斜向外旋 30°</span>
+                <span>符合省力 90° (指引值)</span>
+                <span>向内折疊 130°</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stage 2 Specific Sliders -->
+          <div id="groupStage2Sliders" class="slider-group flex flex-col gap-5 border-t border-slate-800/50 pt-4 hidden">
+            <div class="flex flex-col gap-2">
+              <div class="flex justify-between items-center text-xs">
+                <span class="font-medium text-slate-300">坐姿手肘底高度 (肘高)</span>
+                <span class="font-mono text-emerald-400 font-bold"><span id="valElbowHeight">21</span> cm</span>
+              </div>
+              <input type="range" id="sliderElbowHeight" min="15" max="32" value="21" />
+              <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                <span>小巧 15cm</span>
+                <span>標準 21cm</span>
+                <span>厚實 32cm</span>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-2">
+              <div class="flex justify-between items-center text-xs">
+                <span class="font-medium text-slate-300 flex items-center gap-1">
+                  床邊起身支撐扶手高度
+                  <span class="text-[10px] text-emerald-400">(2 階撐扶關鍵)</span>
+                </span>
+                <span class="font-mono text-emerald-400 font-bold"><span id="valArmrestHeight">65</span> cm</span>
+              </div>
+              <input type="range" id="sliderArmrestHeight" min="45" max="85" value="65" />
+              <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                <span>偏低 45cm</span>
+                <span>推薦高度 (床高+肘底+6cm)</span>
+                <span>聳肩 85cm</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Biomechanical Assessment Guidelines Card -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 shadow-md flex flex-col gap-4">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-2">臨床物理評估與人體工學指引</h3>
+          
+          <div id="jointWarningBox" class="p-3.5 rounded-xl border transition-all text-xs leading-relaxed">
+            <!-- Populate dynamically from JS -->
+          </div>
+
+          <!-- General Knowledge board -->
+          <div class="text-xs text-slate-400 space-y-2 mt-1">
+            <p>💡 <span class="text-slate-200 font-semibold">第一階段側臥起座：</span>高齡者側臥後，利用上位手臂施力推拉對側「床緣拉桿」(省力夾角宜於 86°~93°)，此拉力代償能釋放其腰腹背部 55% 以上的撐體關節剪力阻力。</p>
+            <p>💡 <span class="text-slate-200 font-semibold">第二階段坐姿起立：</span>起立力矩最大需求高達 100 Nm。若扶手高度與 (床高 + 肘底高 + 6cm) 偏離過大，老年人需做過度前傾代償，導致髕骨剪力直接增加 2.5 倍，下肢不自覺向後跌回。</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer Copyright -->
+    <footer class="border-t border-slate-800 bg-slate-950 px-6 py-4 text-center text-xs text-slate-500">
+      <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+        <span>© 2026 高齡者健康促進與臨床人體工學實驗室</span>
+        <span class="font-mono text-[10px] bg-slate-900 border border-slate-800 px-2 py-1 rounded">臨床實踐工具 (Vanilla HTML5)</span>
+      </div>
+    </footer>
+
+    <!-- Vanilla Javascript Logic -->
+    <script>
+      // 1. App Configuration & Constants
+      const SCALE = 2.4; 
+      const FLOOR_Y = 400; 
+      const BED_X_START = 40; 
+      
+      // 2. State management
+      const state = {
+        activeStage: 1, 
+        progress: 0.0,
+        height: 165,
+        elbowHeight: 21,
+        bedHeight: 43,
+        armrestHeight: 65,
+        horizontalArmrestAngle: 90,
+        isFailTrack: false,
+        isPlaying: false,
+        stage1Succeeded: false,
+        stage2Succeeded: false,
+        animationFrameId: null,
+        autoFailCheck: true,
+        notificationTimeout: null
+      };
+
+      // 3. Slider connections
+      const sliders = {
+        height: document.getElementById('sliderHeight'),
+        bedHeight: document.getElementById('sliderBedHeight'),
+        angle: document.getElementById('sliderAngle'),
+        elbowHeight: document.getElementById('sliderElbowHeight'),
+        armrestHeight: document.getElementById('sliderArmrestHeight')
+      };
+
+      // 4. Biomechanical solver helpers (IK and Projection)
+      function project3D(x3d, y3d, z3d) {
+        const angle = Math.PI / 6; 
+        const depthScale = 0.55;   
+        const x = x3d + y3d * Math.cos(angle) * depthScale;
+        const y = FLOOR_Y - z3d + y3d * Math.sin(angle) * depthScale;
+        return { x, y };
+      }
+
+      function solveHumanKnee(hip, ankle, lThigh, lShin) {
+        const dx = ankle.x - hip.x;
+        const dy = ankle.y - hip.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        
+        if (d >= lThigh + lShin) {
+          const ratio = lThigh / (d || 1);
+          return { x: hip.x + dx * ratio, y: hip.y + dy * ratio };
+        } else if (d <= Math.abs(lThigh - lShin)) {
+          const ratio = lThigh / (Math.abs(lThigh - lShin) || 1);
+          return { x: hip.x + dx * ratio, y: hip.y + dy * ratio };
+        } else {
+          const a = (lThigh * lThigh - lShin * lShin + d * d) / (2 * d);
+          const b = Math.sqrt(Math.max(0, lThigh * lThigh - a * a));
+          const ux = dx / d;
+          const uy = dy / d;
+          return {
+            x: hip.x + a * ux + b * uy,
+            y: hip.y + a * uy - b * ux
+          };
+        }
+      }
+
+      function solveElbowIK(shoulder, hand, lUpperArm, lForearm, bendDirection = 'down') {
+        const dx = hand.x - shoulder.x;
+        const dy = hand.y - shoulder.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        
+        if (d >= lUpperArm + lForearm) {
+          const ratio = lUpperArm / (d || 1);
+          return { x: shoulder.x + dx * ratio, y: shoulder.y + dy * ratio };
+        } else if (d <= Math.abs(lUpperArm - lForearm)) {
+          const ratio = lUpperArm / (Math.abs(lUpperArm - lForearm) || 1);
+          return { x: shoulder.x + dx * ratio, y: shoulder.y + dy * ratio };
+        } else {
+          const a = (lUpperArm * lUpperArm - lForearm * lForearm + d * d) / (2 * d);
+          const b = Math.sqrt(Math.max(0, lUpperArm * lUpperArm - a * a));
+          const ux = dx / d;
+          const uy = dy / d;
+          const sign = bendDirection === 'down' ? 1 : -1;
+          const px = -uy * sign;
+          const py = ux * sign;
+          return { x: shoulder.x + a * ux + b * px, y: shoulder.y + a * uy + b * py };
+        }
+      }
+
+      function calculateKneeAngle(coords) {
+        if (!coords) return 90;
+        const v1 = { x: coords.hip.x - coords.knee.x, y: coords.hip.y - coords.knee.y };
+        const v2 = { x: coords.ankle.x - coords.knee.x, y: coords.ankle.y - coords.knee.y };
+        const dot = v1.x * v2.x + v1.y * v2.y;
+        const m1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
+        const m2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
+        const cosTheta = dot / (m1 * m2 || 1);
+        const angleRad = Math.acos(Math.max(-1, Math.min(1, cosTheta)));
+        return Math.round((angleRad * 180) / Math.PI);
+      }
+
+      // 5. Biomechanical Evaluator
+      function assessSettings(params) {
+        const { height, elbowHeight, bedHeight, armrestHeight, horizontalArmrestAngle } = params;
+
+        const optimalArmrestHeight = bedHeight + elbowHeight + 6;
+        const relativeArmrestHeight = armrestHeight - bedHeight;
+        const isOptimal = relativeArmrestHeight >= (elbowHeight + 6) && relativeArmrestHeight <= (elbowHeight + 15);
+        const diff = armrestHeight - optimalArmrestHeight;
+
+        const shinLength = height * 0.25; 
+        let bedHeightType = 'perfect';
+        const idealBedHeightMin = shinLength - 3;
+        const idealBedHeightMax = shinLength + 3;
+        
+        if (bedHeight > idealBedHeightMax) {
+          bedHeightType = 'too-high';
+        } else if (bedHeight < idealBedHeightMin) {
+          bedHeightType = 'too-low';
+        }
+
+        let jointAngleWarning = null;
+        if (bedHeightType === 'too-high') {
+          jointAngleWarning = '床面偏高：高齡者大腿微幅朝下傾斜，足跟偏離床面。此配置雖有利於膝部代償，但若足底無法踩實容易導致重心不穩。';
+        } else if (bedHeightType === 'too-low') {
+          jointAngleWarning = '床面過低：高齡者蹲曲起始角大於 100°，起立瞬間髕骨、半月板將承受 2.5 倍撐體剪力，腿部衰退者極易腿軟跌回。';
+        } else {
+          jointAngleWarning = '床高最佳：完全匹配角色小腿長（膝蓋維持 90° 合宜人體工學角度），起立時足底平踩，提供穩健的磨擦推力。';
+        }
+
+        const horizontalArmrestAngleIsOptimal = horizontalArmrestAngle >= 86 && horizontalArmrestAngle <= 93;
+
+        return {
+          isOptimal,
+          optimalArmrestHeight,
+          actualArmrestHeightRelative: relativeArmrestHeight,
+          optimalArmrestHeightRelative: elbowHeight + 6,
+          diff,
+          elbowHeightFromFloor: bedHeight + elbowHeight,
+          jointAngleWarning,
+          bedHeightType,
+          horizontalArmrestAngleIsOptimal,
+          idealBedHeightMin,
+          idealBedHeightMax,
+          shinLength
+        };
+      }
+
+      // 6. Joint Kinematics calculator for Stage 1
+      function getJointCoordinatesStage1(params, t, isFailTrack) {
+        const { height, bedHeight, armrestHeight, horizontalArmrestAngle } = params;
+        const h = height;
+        const scale = SCALE;
+
+        const lTorso = h * 0.30 * scale;
+        const lThigh = h * 0.25 * scale;
+        const lShin = h * 0.25 * scale;
+        const lUpperArm = h * 0.16 * scale;
+        const lForearm = h * 0.14 * scale;
+        const headRadius = h * 0.08 * scale * 0.6;
+        const lNeck = h * 0.045 * scale;
+
+        const yBed = bedHeight * scale;
+        const dx3d = BED_X_START - 40;
+
+        // Correct variables scope
+        const latRad = (horizontalArmrestAngle * Math.PI) / 180;
+        const latLength = 50;
+
+        let animT = t;
+        if (isFailTrack) {
+          if (t < 0.5) {
+            animT = t * 1.5;
+          } else {
+            const rollback = (t - 0.5) / 0.5;
+            const wiggle = Math.sin(t * 45) * 4;
+            animT = 0.75 * Math.cos((rollback * Math.PI) / 2) + wiggle / 50;
+          }
+        }
+
+        let progressPrep = 0;
+        let progressRoll = 0;
+        let progressSit = 0;
+
+        if (animT < 0.2) {
+          progressPrep = animT / 0.2;
+        } else if (animT < 0.5) {
+          progressPrep = 1.0;
+          progressRoll = (animT - 0.2) / 0.3;
+        } else {
+          progressPrep = 1.0;
+          progressRoll = 1.0;
+          progressSit = (animT - 0.5) / 0.5;
+        }
+
+        // Parallel flat lying resting state at t = 0 (No overflow!)
+        const headX3d_start = BED_X_START + 30;
+        const shX3d_start = headX3d_start + headRadius + lNeck;
+        const hipX3d_start = shX3d_start + lTorso;
+
+        const hipX3d_roll_end = hipX3d_start + 10;
+        const hipX3d_sit_end = BED_X_START + 180;
+
+        let hipX3d = hipX3d_start;
+        let hipY3d = 40;
+        let hipZ3d = yBed;
+
+        if (progressRoll > 0) {
+          hipX3d = hipX3d_start + (hipX3d_roll_end - hipX3d_start) * progressRoll;
+          hipY3d = 40 + 30 * progressRoll;
+        }
+        if (progressSit > 0) {
+          hipX3d = hipX3d_roll_end + (hipX3d_sit_end - hipX3d_roll_end) * progressSit;
+          hipY3d = 70 + 30 * progressSit;
+        }
+
+        const shoulderStart = { x: shX3d_start, y: 40, z: yBed + 2 };
+        const shoulderRoll = { x: hipX3d_roll_end - lTorso * Math.cos(Math.PI / 12), y: 70, z: yBed + lTorso * Math.sin(Math.PI / 12) };
+        const shoulderSit = { x: hipX3d_sit_end, y: 100, z: yBed + lTorso };
+
+        let shX3d = shoulderStart.x;
+        let shY3d = shoulderStart.y;
+        let shZ3d = shoulderStart.z;
+
+        if (progressRoll > 0) {
+          shX3d = shoulderStart.x + (shoulderRoll.x - shoulderStart.x) * progressRoll;
+          shY3d = shoulderStart.y + (shoulderRoll.y - shoulderStart.y) * progressRoll;
+          shZ3d = shoulderStart.z + (shoulderRoll.z - shoulderStart.z) * progressRoll;
+        }
+        if (progressSit > 0) {
+          shX3d = shoulderRoll.x + (shoulderSit.x - shoulderRoll.x) * progressSit;
+          shY3d = shoulderRoll.y + (shoulderSit.y - shoulderRoll.y) * progressSit;
+          shZ3d = shoulderRoll.z + (shoulderSit.z - shoulderRoll.z) * progressSit;
+        }
+
+        let headX3d = shX3d - lNeck - headRadius;
+        let headY3d = shY3d;
+        let headZ3d = shZ3d;
+
+        if (progressRoll > 0) {
+          headX3d = shX3d - (lNeck + headRadius) * Math.cos(Math.PI / 12 * progressRoll);
+          headZ3d = shZ3d + (lNeck + headRadius) * Math.sin(Math.PI / 12 * progressRoll);
+        }
+        if (progressSit > 0) {
+          const alphaStart = Math.PI - Math.PI / 12;
+          const alphaSit = Math.PI / 2;
+          const alpha = alphaStart - (alphaStart - alphaSit) * progressSit;
+          headX3d = shX3d + (lNeck + headRadius) * Math.cos(alpha);
+          headZ3d = shZ3d + (lNeck + headRadius) * Math.sin(alpha);
+        }
+
+        let contraHipX3d = hipX3d;
+        let contraHipY3d = hipY3d - 16 * (1 - progressSit);
+        let contraHipZ3d = hipZ3d + 10 * (1 - progressSit);
+        let contraShX3d = shX3d;
+        let contraShY3d = shY3d - 18 * (1 - progressSit);
+        let contraShZ3d = shZ3d + 12 * (1 - progressSit);
+
+        if (progressSit > 0) {
+          contraHipX3d = hipX3d - 6 * progressSit;
+          contraHipY3d = hipY3d - 3 * progressSit;
+          contraHipZ3d = hipZ3d;
+          contraShX3d = shX3d - 6 * progressSit;
+          contraShY3d = shY3d - 3 * progressSit;
+          contraShZ3d = shZ3d - 1 * progressSit;
+        }
+
+        let kneeX3d = hipX3d + lThigh;
+        let kneeY3d = hipY3d;
+        let kneeZ3d = hipZ3d;
+        let ankleX3d = hipX3d + lThigh + lShin;
+        let ankleY3d = hipY3d;
+        let ankleZ3d = hipZ3d;
+
+        if (progressRoll > 0) {
+          kneeX3d = (hipX3d + lThigh) - 10 * progressRoll;
+          kneeY3d = hipY3d + 20 * progressRoll;
+          kneeZ3d = yBed;
+          ankleX3d = (hipX3d + lThigh + lShin) - 25 * progressRoll;
+          ankleY3d = hipY3d + 20 * progressRoll;
+          ankleZ3d = yBed;
+        }
+
+        const kneeYSit = 100 + lThigh;
+        const ankleXSit = hipX3d_sit_end;
+        let ankleZSit = yBed - lShin;
+        let finalAnkleYSit = 100 + lThigh;
+
+        if (yBed < lShin) {
+          ankleZSit = 0;
+          const shinYDrop = yBed;
+          const shinXSpan = Math.sqrt(Math.max(0, lShin * lShin - shinYDrop * shinYDrop));
+          finalAnkleYSit = kneeYSit - shinXSpan;
+        }
+
+        if (progressSit > 0) {
+          const p = progressSit;
+          kneeX3d = (hipX3d_roll_end + lThigh - 10) * (1 - p) + hipX3d * p;
+          kneeY3d = hipY3d * (1 - p) + kneeYSit * p;
+          kneeZ3d = yBed;
+
+          ankleX3d = (hipX3d_roll_end + lThigh + lShin - 25) * (1 - p) + ankleXSit * p;
+          ankleY3d = hipY3d * (1 - p) + finalAnkleYSit * p;
+          ankleZ3d = yBed * (1 - p) + ankleZSit * p;
+        }
+
+        let contraKneeX3d = hipX3d + lThigh;
+        let contraKneeY3d = hipY3d - 15;
+        let contraKneeZ3d = hipZ3d;
+        let contraAnkleX3d = hipX3d + lThigh + lShin;
+        let contraAnkleY3d = hipY3d - 15;
+        let contraAnkleZ3d = hipZ3d;
+
+        if (progressPrep > 0) {
+          const p = progressPrep;
+          contraAnkleX3d = (hipX3d + lThigh + lShin) - (lThigh + lShin - 40) * p;
+          contraAnkleY3d = hipY3d - 15;
+          contraAnkleZ3d = yBed;
+          contraKneeX3d = hipX3d + 35;
+          contraKneeY3d = hipY3d - 15;
+          contraKneeZ3d = yBed + 40 * p;
+        }
+
+        if (progressRoll > 0) {
+          const p = progressRoll;
+          contraKneeX3d = (hipX3d_start + 35) * (1 - p) + (hipX3d_roll_end + lThigh - 15) * p;
+          contraKneeY3d = (hipY3d - 15) * (1 - p) + (hipY3d - 6) * p;
+          contraKneeZ3d = (yBed + 40) * (1 - p) + (yBed + 2) * p;
+          contraAnkleX3d = (hipX3d_start + 40) * (1 - p) + (hipX3d_roll_end + lThigh + lShin - 30) * p;
+          contraAnkleY3d = (hipY3d - 15) * (1 - p) + (hipY3d - 6) * p;
+          contraAnkleZ3d = yBed;
+        }
+
+        if (progressSit > 0) {
+          const p = progressSit;
+          contraKneeX3d = (hipX3d_roll_end + lThigh - 15) * (1 - p) + (hipX3d - 6) * p;
+          contraKneeY3d = (hipY3d - 6) * (1 - p) + kneeYSit * p;
+          contraKneeZ3d = yBed;
+          contraAnkleX3d = (hipX3d_roll_end + lThigh + lShin - 30) * (1 - p) + (ankleXSit - 6) * p;
+          contraAnkleY3d = (hipY3d - 6) * (1 - p) + finalAnkleYSit * p;
+          contraAnkleZ3d = yBed * (1 - p) + ankleZSit * p;
+        }
+
+        const head = project3D(headX3d, headY3d, headZ3d);
+        const shoulder = project3D(shX3d, shY3d, shZ3d);
+        const hip = project3D(hipX3d, hipY3d, hipZ3d);
+        const knee = project3D(kneeX3d, kneeY3d, kneeZ3d);
+        const ankle = project3D(ankleX3d, ankleY3d, ankleZ3d);
+
+        const contraKnee = project3D(contraKneeX3d, contraKneeY3d, contraKneeZ3d);
+        const contraAnkle = project3D(contraAnkleX3d, contraAnkleY3d, contraAnkleZ3d);
+        const contraShoulder = project3D(contraShX3d, contraShY3d, contraShZ3d);
+        const contraHip = project3D(contraHipX3d, contraHipY3d, contraHipZ3d);
+
+        const latEndX3d = (205 + dx3d) - latLength * Math.cos(latRad);
+        const latEndY3d = 100 - latLength * Math.sin(latRad);
+        const latEndZ3d = yBed - 5;
+        const latGrabPoint2D = project3D(latEndX3d, latEndY3d, latEndZ3d);
+
+        const armrestHeightPx = armrestHeight * scale;
+        const bedsideArmrestGrab3D = { x: 255 + dx3d, y: 115, z: armrestHeightPx };
+        const bedsideGrabPoint2D = project3D(bedsideArmrestGrab3D.x, bedsideArmrestGrab3D.y, bedsideArmrestGrab3D.z);
+
+        let handX2d = latGrabPoint2D.x;
+        let handY2d = latGrabPoint2D.y;
+
+        if (progressSit > 0) {
+          handX2d = latGrabPoint2D.x + (bedsideGrabPoint2D.x - latGrabPoint2D.x) * progressSit;
+          handY2d = latGrabPoint2D.y + (bedsideGrabPoint2D.y - latGrabPoint2D.y) * progressSit;
+          if (isFailTrack) {
+            handX2d += Math.sin(progressSit * 30) * 3;
+            handY2d += progressSit * 15;
+          }
+        }
+
+        const elbow = solveElbowIK(shoulder, { x: handX2d, y: handY2d }, lUpperArm, lForearm, 'down');
+
+        const footTipX = ankle.x + 22 * (h / 170) * scale;
+        const footTipY = ankle.y;
+        const contraFootTipX = contraAnkle.x + 20 * (h / 170) * scale;
+        const contraFootTipY = contraAnkle.y;
+
+        return {
+          head, shoulder, elbow, hand: { x: handX2d, y: handY2d },
+          hip, knee, ankle, footTip: { x: footTipX, y: footTipY },
+          contraKnee, contraAnkle, contraFootTip: { x: contraFootTipX, y: contraFootTipY },
+          contraShoulder, contraHip
+        };
+      }
+
+      // 7. Joint Kinematics calculator for Stage 2
+      function getJointCoordinatesStage2(params, t, isFailTrack) {
+        const { height, bedHeight, armrestHeight } = params;
+        const h = height;
+        const scale = SCALE;
+
+        const lTorso = h * 0.30 * scale;
+        const lThigh = h * 0.25 * scale;
+        const lShin = h * 0.25 * scale;
+        const lUpperArm = h * 0.16 * scale;
+        const lForearm = h * 0.14 * scale;
+        const headRadius = h * 0.08 * scale * 0.6;
+        const lNeck = h * 0.045 * scale;
+
+        const yBed = bedHeight * scale;
+        const dx3d = BED_X_START - 40;
+
+        let animT = t;
+        let leanXFactor = 0;
+
+        if (isFailTrack) {
+          if (t < 0.4) {
+            animT = t * 0.8;
+            leanXFactor = Math.sin((t * Math.PI) / 0.4) * 38;
+          } else {
+            const fallbackPct = (t - 0.4) / 0.6;
+            const shakeOffset = Math.sin(t * 52) * 3.5;
+            animT = 0.32 * (1 - fallbackPct) + shakeOffset / 100;
+            leanXFactor = 38 * (1 - fallbackPct) + shakeOffset;
+          }
+        } else {
+          if (t < 0.35) {
+            const p = t / 0.35;
+            leanXFactor = Math.sin((p * Math.PI) / 2) * 58;
+          } else {
+            const p = (t - 0.35) / 0.65;
+            leanXFactor = Math.cos((p * Math.PI) / 2) * 58;
+          }
+        }
+
+        const leanAngle = leanXFactor / 110;
+        const standingZ = (lThigh + lShin) * 0.95;
+        const hipX3d = (220 + dx3d) + (215 - 220) * animT;
+        const hipY3d = 100 + 10 * animT;
+        const hipZ3d = yBed + (standingZ - yBed) * animT;
+
+        const shX3d = hipX3d - lTorso * Math.sin(leanAngle);
+        const shY3d = hipY3d;
+        const shZ3d = hipZ3d + lTorso * Math.cos(leanAngle);
+
+        const contraHipX3d = hipX3d - 8;
+        const contraHipY3d = hipY3d - 4;
+        const contraHipZ3d = hipZ3d;
+        const contraShX3d = shX3d - 8;
+        const contraShY3d = shY3d - 4;
+        const contraShZ3d = shZ3d - 2;
+
+        let headX3d = shX3d - (lNeck + headRadius) * Math.sin(leanAngle);
+        let headY3d = shY3d;
+        let headZ3d = shZ3d + (lNeck + headRadius) * Math.cos(leanAngle);
+
+        if (!isFailTrack) {
+          const arcXOffset = Math.sin(animT * Math.PI) * 15;
+          const arcZOffset = Math.sin(animT * Math.PI) * 6;
+          headX3d += arcXOffset;
+          headZ3d += arcZOffset;
+        }
+
+        const kneeYSit = 100 + lThigh;
+        let ankleYSitDummy = kneeYSit;
+        if (yBed < lShin) {
+          const shinYDrop = yBed;
+          const shinXSpan = Math.sqrt(Math.max(0, lShin * lShin - shinYDrop * shinYDrop));
+          ankleYSitDummy = kneeYSit - shinXSpan;
+        }
+        const ankleYStand = 100 + lThigh - 5;
+
+        const ankleX3d = (220 + dx3d) + 20 * animT;
+        const ankleY3d = ankleYSitDummy + (ankleYStand - ankleYSitDummy) * animT;
+        const ankleZ3d = 0;
+
+        const contraAnkleX3d = (220 + dx3d - 6) + 20 * animT;
+        const contraAnkleY3d = ankleY3d - 4;
+        const contraAnkleZ3d = 0;
+
+        const head = project3D(headX3d, headY3d, headZ3d);
+        const shoulder = project3D(shX3d, shY3d, shZ3d);
+        const hip = project3D(hipX3d, hipY3d, hipZ3d);
+        const ankle = project3D(ankleX3d, ankleY3d, ankleZ3d);
+        const contraAnkle = project3D(contraAnkleX3d, contraAnkleY3d, contraAnkleZ3d);
+
+        const knee = solveHumanKnee(hip, ankle, lThigh, lShin);
+        const contraKnee = solveHumanKnee(project3D(contraHipX3d, contraHipY3d, contraHipZ3d), contraAnkle, lThigh, lShin);
+
+        const armrestHeightPx = armrestHeight * scale;
+        const bedsideArmrestGrab3D = { x: 255 + dx3d, y: 115, z: armrestHeightPx };
+        const bedsideGrabPoint2D = project3D(bedsideArmrestGrab3D.x, bedsideArmrestGrab3D.y, bedsideArmrestGrab3D.z);
+
+        let handX2d = bedsideGrabPoint2D.x;
+        let handY2d = bedsideGrabPoint2D.y;
+
+        if (!isFailTrack) {
+          if (t >= 0.6) {
+            const u = (t - 0.6) / 0.4;
+            const targetHandX3d = shX3d + 10;
+            const targetHandY3d = shY3d + 10;
+            const targetHandZ3d = shZ3d - lUpperArm - lForearm + 5;
+            const targetHand2D = project3D(targetHandX3d, targetHandY3d, targetHandZ3d);
+            handX2d = bedsideGrabPoint2D.x + (targetHand2D.x - bedsideGrabPoint2D.x) * u;
+            handY2d = bedsideGrabPoint2D.y + (targetHand2D.y - bedsideGrabPoint2D.y) * u;
+          }
+        } else {
+          if (t >= 0.4) {
+            const slipScale = (t - 0.4) / 0.6;
+            const slipX = Math.sin(t * 30) * 4;
+            handX2d = bedsideGrabPoint2D.x + slipX;
+            handY2d = bedsideGrabPoint2D.y + slipScale * 12;
+          }
+        }
+
+        const elbow = solveElbowIK(shoulder, { x: handX2d, y: handY2d }, lUpperArm, lForearm, 'down');
+
+        const footTipX = ankle.x + 22 * (h / 170) * scale;
+        const footTipY = ankle.y;
+        const contraFootTipX = contraAnkle.x + 20 * (h / 170) * scale;
+        const contraFootTipY = contraAnkle.y;
+
+        const contraShoulder = project3D(contraShX3d, contraShY3d, contraShZ3d);
+        const contraHip = project3D(contraHipX3d, contraHipY3d, contraHipZ3d);
+
+        return {
+          head, shoulder, elbow, hand: { x: handX2d, y: handY2d },
+          hip, knee, ankle, footTip: { x: footTipX, y: footTipY },
+          contraKnee, contraAnkle, contraFootTip: { x: contraFootTipX, y: contraFootTipY },
+          contraShoulder, contraHip
+        };
+      }
+
+      // 8. Dynamic floating text listings populator
+      function renderDataPanel(assessment, coords) {
+        let content = '';
+        if (state.activeStage === 1) {
+          const idealMin = Math.round(state.height * 0.25 - 3);
+          const idealMax = Math.round(state.height * 0.25 + 3);
+          const isAngleOk = assessment.horizontalArmrestAngleIsOptimal;
+          
+          content += `
+            <div class="border-b border-slate-700 pb-1.5 mb-1.5 font-bold flex items-center justify-between text-blue-400">
+              <span>第一階段：床緣側起</span>
+              <span>${Math.round(state.progress * 100)}%</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">大眾身高 (H):</span>
+              <span class="font-bold">${state.height} cm</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">目前床高:</span>
+              <span class="font-bold">${state.bedHeight} cm</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">安全床高範圍:</span>
+              <span class="text-sky-400 font-bold">${idealMin} - ${idealMax} cm</span>
+            </div>
+            <div class="flex justify-between border-t border-slate-800/80 pt-1.5 mt-1.5">
+              <span class="text-slate-400">扶手省力角度:</span>
+              <span class="font-bold">${state.horizontalArmrestAngle}°</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">力學省力判定:</span>
+              <span class="${isAngleOk ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}">
+                ${isAngleOk ? "✓ 符合最佳角度" : "⚠ 偏離 (撐體耗力)"}
+              </span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">安心躺臥溢出:</span>
+              <span class="text-emerald-400 font-bold">✓ 無 (完全貼合)</span>
+            </div>
+          `;
+        } else {
+          const kneeAngle = calculateKneeAngle(coords);
+          const sMin = Math.round(state.height * 0.25 - 3);
+          const isLowBed = state.bedHeight < sMin;
+          const isHighBed = state.bedHeight > (state.height * 0.25 + 3);
+          
+          let kneeStatus = '<span class="text-emerald-400 font-bold">✓ 合格 (足底平踩)</span>';
+          if (isLowBed) {
+            kneeStatus = '<span class="text-rose-400 font-bold">⚠ 過低 (關節高擠壓)</span>';
+          } else if (isHighBed) {
+            kneeStatus = '<span class="text-amber-400 font-bold">偏高 (代償懸空)</span>';
+          }
+
+          const isRailOk = assessment.isOptimal;
+          const railStatusText = isRailOk 
+            ? '<span class="text-emerald-400 font-bold">✓ 合格 (承重佳)</span>' 
+            : (assessment.diff < 0 
+                ? '<span class="text-rose-400 font-bold">⚠ 偏低 (無法借力)</span>' 
+                : '<span class="text-amber-400 font-bold">⚠ 偏高 (聳肩受阻)</span>');
+
+          content += `
+            <div class="border-b border-slate-700 pb-1.5 mb-1.5 font-bold flex items-center justify-between text-emerald-400">
+              <span>第二階段：重心起立</span>
+              <span>${Math.round(state.progress * 100)}%</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">目前膝起始角:</span>
+              <span class="font-bold">約 ${kneeAngle}°</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">足底受力狀態:</span>
+              <span>${kneeStatus}</span>
+            </div>
+            <div class="flex justify-between border-t border-slate-800/80 pt-1.5 mt-1.5">
+              <span class="text-slate-400">推薦安全扶手高:</span>
+              <span class="text-blue-400 font-bold">${Math.round(assessment.optimalArmrestHeight)} cm</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">實體裝設扶手高:</span>
+              <span class="font-bold">${state.armrestHeight} cm</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">起身手高誤差:</span>
+              <span class="font-bold ${Math.abs(assessment.diff) <= 4 ? "text-emerald-400" : (assessment.diff < 0 ? "text-rose-400":"text-amber-400")}">
+                ${assessment.diff > 0 ? '+' : ''}${Math.round(assessment.diff)} cm
+              </span>
+            </div>
+            <div class="flex justify-between border-t border-slate-800/80 pt-1.5 mt-1.5">
+              <span class="text-slate-400">扶手抓握判定:</span>
+              <span>${railStatusText}</span>
+            </div>
+          `;
+        }
+        document.getElementById('dataPanel').innerHTML = content;
+      }
+
+      // 9. Status banners and caution alerts updater
+      function renderAssessmentWarnings(assessment) {
+        const warningBox = document.getElementById('jointWarningBox');
+        let html = '';
+
+        if (state.activeStage === 1) {
+          const meetsIdeal = assessment.horizontalArmrestAngleIsOptimal;
+          if (meetsIdeal) {
+            html = `
+              <div class="text-emerald-300">
+                <span class="text-emerald-400 font-bold">✦ 側向拉桿角度合宜：</span>
+                當前角度符合 86° 到 93° 黄金範圍。手部橫向拉握起座時能最大程度代償腹肌力，撐起脊椎 55% 的剪切壓，完全杜絕下背受傷。
+              </div>
+            `;
+          } else {
+            html = `
+              <div class="text-amber-300">
+                <span class="text-amber-400 font-bold">⚠ 側向拉桿角度不佳：</span>
+                拉把目前斜置（${state.horizontalArmrestAngle}°）！這迫使高齡者需要做額外手臂旋轉拉扭，骨盆極難跟隨「弧線轉向」，可能向後折返中斷起座。
+              </div>
+            `;
+          }
+        } else {
+          const isLowBed = state.bedHeight < (state.height * 0.25 - 3);
+          const isHardRail = !assessment.isOptimal;
+
+          if (isLowBed) {
+            html = `
+              <div class="text-rose-300">
+                <span class="text-rose-400 font-bold">⚠ 膝蓋深屈折角過大（床面偏低）：</span>
+                床高 ${state.bedHeight}cm 顯著低於角色小腿長（${Math.round(state.height * 0.25)}cm）。膝部重力折彎大於 100°，強行推起會對髕骨骨密面施加 2.5 倍擠壓力。
+              </div>
+            `;
+          } else if (isHardRail) {
+            const gapWord = assessment.diff < 0 ? '偏低' : '偏高';
+            html = `
+              <div class="text-amber-300">
+                <span class="text-amber-400 font-bold">⚠ 床邊支撐扶手${gapWord}：</span>
+                高度與推薦值差了 ${Math.round(assessment.diff)}cm。${assessment.diff < 0 ? '手臂太直而無法充分借力，腿部需承載額外 35% 重力' : '雙手位置過高、聳肩，起立重心被迫向後，極易晃動摔倒'}。
+              </div>
+            `;
+          } else {
+            html = `
+              <div class="text-emerald-300">
+                <span class="text-emerald-400 font-bold">✦ 工學適配完美：</span>
+                床高平實貼地、起身扶手恰到好處！形成完美的三角形借力桿。高齡者起身毫不費力，安全係數極高。
+              </div>
+            `;
+          }
+        }
+        warningBox.className = `p-3.5 rounded-xl border transition-all text-xs leading-relaxed ${
+          html.includes('✦') ? 'bg-emerald-950/40 border-emerald-500/20' : (html.includes('⚠ 膝蓋') ? 'bg-rose-950/40 border-rose-500/20' : 'bg-amber-950/40 border-amber-500/20')
+        }`;
+        warningBox.innerHTML = html;
+
+        // Header status light updates
+        const statusBanner = document.getElementById('connectionStatus');
+        let pass = false;
+        if (state.activeStage === 1) {
+          pass = assessment.horizontalArmrestAngleIsOptimal;
+        } else {
+          const isLowBed = state.bedHeight < (state.height * 0.25 - 3);
+          pass = assessment.isOptimal && !isLowBed;
+        }
+
+        if (pass) {
+          statusBanner.className = "flex items-center gap-2 text-xs bg-emerald-950/40 text-emerald-300 px-3 py-1.5 rounded-full border border-emerald-500/20 font-mono shadow-sm";
+          statusBanner.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span><span>● 狀態判定: 工學規格優良 (安全)</span>`;
+          if (state.autoFailCheck) state.isFailTrack = false;
+        } else {
+          statusBanner.className = "flex items-center gap-2 text-xs bg-amber-950/45 text-amber-300 px-3 py-1.5 rounded-full border border-amber-500/20 font-mono shadow-sm";
+          statusBanner.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span><span>● 狀態判定: 具受傷風險 (建議修正)</span>`;
+          if (state.autoFailCheck) state.isFailTrack = true;
+        }
+      }
+
+      // 10. Vector graphics canvas render
+      function render() {
+        const h = state.height;
+        const scale = SCALE;
+
+        const lTorso = h * 0.30 * scale;
+        const lThigh = h * 0.25 * scale;
+        const lShin = h * 0.25 * scale;
+        const headRadius = h * 0.08 * scale * 0.6;
+
+        const bedHeight = state.bedHeight;
+        const armrestHeight = state.armrestHeight;
+        const horizontalArmrestAngle = state.horizontalArmrestAngle;
+
+        const yBed = bedHeight * scale;
+        const bedLength = (h + 20) * scale; // Beds are dynamic, proportional to human height!
+        const dx3d = BED_X_START - 40;
+
+        const assessment = assessSettings(state);
+        
+        let coords = (state.activeStage === 1)
+          ? getJointCoordinatesStage1(state, state.progress, state.isFailTrack)
+          : getJointCoordinatesStage2(state, state.progress, state.isFailTrack);
+
+        // Bed projection nodes
+        const ptTL = project3D(BED_X_START, 0, yBed);
+        const ptTR = project3D(BED_X_START + bedLength, 0, yBed);
+        const ptBR = project3D(BED_X_START + bedLength, 100, yBed);
+        const ptBL = project3D(BED_X_START, 100, yBed);
+
+        const ptBL_thick = project3D(BED_X_START, 100, yBed - 18);
+        const ptBR_thick = project3D(BED_X_START + bedLength, 100, yBed - 18);
+        const ptTR_thick = project3D(BED_X_START + bedLength, 0, yBed - 18);
+
+        const ptTL_base = project3D(BED_X_START + 5, 0, yBed - 18);
+        const ptTR_base = project3D(BED_X_START + bedLength - 5, 0, yBed - 18);
+        const ptBR_base = project3D(BED_X_START + bedLength - 5, 95, yBed - 18);
+        const ptBL_base = project3D(BED_X_START + 5, 95, yBed - 18);
+
+        const legFL_top = project3D(BED_X_START + 5, 95, yBed - 18);
+        const legFL_bot = project3D(BED_X_START + 5, 95, 0);
+        const legFR_top = project3D(BED_X_START + bedLength - 5, 95, yBed - 18);
+        const legFR_bot = project3D(BED_X_START + bedLength - 5, 95, 0);
+
+        // Pillow on mattress
+        const pilTL = project3D(BED_X_START + 12, 18, yBed);
+        const pilTR = project3D(BED_X_START + 58, 18, yBed);
+        const pilBR = project3D(BED_X_START + 58, 82, yBed);
+        const pilBL = project3D(BED_X_START + 12, 82, yBed);
+
+        // Stage 1 lateral non-lifting side armrest rotational leverage
+        const latRad = (horizontalArmrestAngle * Math.PI) / 180;
+        const latLength = 50;
+        const latPivot = project3D(205 + dx3d, 100, yBed - 5);
+        const latEnd = project3D((205 + dx3d) - latLength * Math.cos(latRad), 100 - latLength * Math.sin(latRad), yBed - 5);
+
+        // Stage 2 bedside standup armrest
+        const armrestHeightPx = armrestHeight * scale;
+        const bsRail_leg1_top = project3D(245 + dx3d, 115, armrestHeightPx);
+        const bsRail_leg1_bot = project3D(245 + dx3d, 115, 0);
+        const bsRail_leg2_top = project3D(265 + dx3d, 115, armrestHeightPx);
+        const bsRail_leg2_bot = project3D(265 + dx3d, 115, 0);
+        const bsRail_found_start = project3D(235 + dx3d, 115, 2);
+        const bsRail_found_end = project3D(275 + dx3d, 115, 2);
+
+        let svgHTML = '';
+
+        // Oblique floor lines
+        svgHTML += `<line x1="0" y1="400" x2="640" y2="400" stroke="#1e293b" stroke-width="2" />`;
+        svgHTML += `<line x1="${project3D(0, 115, 0).x}" y1="${project3D(0, 115, 0).y}" x2="${project3D(640, 115, 0).x}" y2="${project3D(640, 115, 0).y}" stroke="#1e293b" stroke-width="2" opacity="0.4" stroke-dasharray="1 1" />`;
+
+        // Contralateral background limbs (under the bed)
+        svgHTML += `
+          <g opacity="0.32">
+            <line x1="${coords.contraHip.x}" y1="${coords.contraHip.y}" x2="${coords.contraShoulder.x}" y2="${coords.contraShoulder.y}" stroke="#1e3a8a" stroke-width="5" stroke-linecap="round" />
+            <line x1="${coords.contraHip.x}" y1="${coords.contraHip.y}" x2="${coords.contraKnee.x}" y2="${coords.contraKnee.y}" stroke="#1e3a8a" stroke-width="5" stroke-linecap="round" />
+            <line x1="${coords.contraKnee.x}" y1="${coords.contraKnee.y}" x2="${coords.contraAnkle.x}" y2="${coords.contraAnkle.y}" stroke="#1d4ed8" stroke-width="4.5" stroke-linecap="round" />
+            <line x1="${coords.contraAnkle.x}" y1="${coords.contraAnkle.y}" x2="${coords.contraFootTip.x}" y2="${coords.contraFootTip.y}" stroke="#1d4ed8" stroke-width="5" stroke-linecap="round" />
+          </g>
+        `;
+
+        // SOLID MATTRESS BLOCK
+        svgHTML += `<polygon points="${ptTL_base.x},${ptTL_base.y} ${ptTR_base.x},${ptTR_base.y} ${ptBR_base.x},${ptBR_base.y} ${ptBL_base.x},${ptBL_base.y}" fill="#1e293b" stroke="#334155" stroke-width="1.2" />`;
+        svgHTML += `<polygon points="${ptTL.x},${ptTL.y} ${ptTR.x},${ptTR.y} ${ptBR.x},${ptBR.y} ${ptBL.x},${ptBL.y}" fill="#172554" stroke="#2563eb" stroke-width="1.8" />`;
+        svgHTML += `<polygon points="${ptBL.x},${ptBL.y} ${ptBR.x},${ptBR.y} ${ptBR_thick.x},${ptBR_thick.y} ${ptBL_thick.x},${ptBL_thick.y}" fill="#1d4ed8" stroke="#2563eb" stroke-width="1.8" />`;
+        svgHTML += `<polygon points="${ptTR.x},${ptTR.y} ${ptBR.x},${ptBR.y} ${ptBR_thick.x},${ptBR_thick.y} ${ptTR_thick.x},${ptTR_thick.y}" fill="#1e40af" stroke="#2563eb" stroke-width="1.8" />`;
+
+        // Pillow
+        svgHTML += `<polygon points="${pilTL.x},${pilTL.y} ${pilTR.x},${pilTR.y} ${pilBR.x},${pilBR.y} ${pilBL.x},${pilBL.y}" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.3" />`;
+
+        // Front bed support pillars
+        svgHTML += `<line x1="${legFL_bot.x}" y1="${legFL_bot.y}" x2="${legFL_top.x}" y2="${legFL_top.y}" stroke="#475569" stroke-width="4.5" stroke-linecap="round" />`;
+        svgHTML += `<line x1="${legFR_bot.x}" y1="${legFR_bot.y}" x2="${legFR_top.x}" y2="${legFR_top.y}" stroke="#475569" stroke-width="4.5" stroke-linecap="round" />`;
+
+        // Dynamic Supportive Hardware Renderings
+        if (state.activeStage === 1) {
+          // Trajectory guideline for Stage 1 rotational sitting
+          const isSucceeded = state.progress === 1.0;
+          const lineCol = isSucceeded ? '#10b981' : '#f97316';
+          svgHTML += `<path d="M ${project3D(BED_X_START + 30, 50, yBed + 10).x} ${project3D(BED_X_START + 30, 50, yBed + 10).y} Q ${project3D(BED_X_START + 120, 75, yBed + 75).x} ${project3D(BED_X_START + 120, 75, yBed + 75).y} ${coords.head.x} ${coords.head.y}" fill="none" stroke="${lineCol}" stroke-width="2.2" stroke-dasharray="3 4" opacity="0.8" />`;
+
+          // Non-lifting armrest pivot Lever with state color
+          const leverCol = assessment.horizontalArmrestAngleIsOptimal ? '#10b981' : '#f59e0b';
+          svgHTML += `
+            <line x1="${latPivot.x}" y1="${latPivot.y}" x2="${latEnd.x}" y2="${latEnd.y}" stroke="${leverCol}" stroke-width="6" stroke-linecap="round" />
+            <circle cx="${latPivot.x}" cy="${latPivot.y}" r="4" fill="#334155" />
+            <g transform="translate(${latEnd.x - 20}, ${latEnd.y - 18})">
+              <rect width="40" height="14" rx="3" fill="${leverCol}" opacity="0.95" />
+              <text x="20" y="10" fill="#ffffff" font-size="8.5" font-family="sans-serif" font-weight="bold" text-anchor="middle">${assessment.horizontalArmrestAngleIsOptimal ? '✓ 省力' : '⚠ 承阻'}</text>
+            </g>
+          `;
+        } else {
+          // Target heights guidelines
+          const idealZ_Px = assessment.optimalArmrestHeight * scale;
+          const optimalY = project3D(255 + dx3d, 115, idealZ_Px).y;
+          svgHTML += `<line x1="${project3D(180 + dx3d, 115, idealZ_Px).x}" y1="${optimalY}" x2="${project3D(310 + dx3d, 115, idealZ_Px).x}" y2="${optimalY}" stroke="#10b981" stroke-width="1.5" stroke-dasharray="3 4" />`;
+
+          // Grab Bars
+          svgHTML += `
+            <line x1="${bsRail_leg1_bot.x}" y1="${bsRail_leg1_bot.y}" x2="${bsRail_leg1_top.x}" y2="${bsRail_leg1_top.y}" stroke="#64748b" stroke-width="4.5" stroke-linecap="round" />
+            <line x1="${bsRail_leg2_bot.x}" y1="${bsRail_leg2_bot.y}" x2="${bsRail_leg2_top.x}" y2="${bsRail_leg2_top.y}" stroke="#64748b" stroke-width="4.5" stroke-linecap="round" />
+            <line x1="${bsRail_found_start.x}" y1="${bsRail_found_start.y}" x2="${bsRail_found_end.x}" y2="${bsRail_found_end.y}" stroke="#334155" stroke-width="5.5" stroke-linecap="round" />
+            <line x1="${bsRail_leg1_top.x}" y1="${bsRail_leg1_top.y}" x2="${bsRail_leg2_top.x}" y2="${bsRail_leg2_top.y}" stroke="${assessment.isOptimal ? '#10b981' : '#f59e0b'}" stroke-width="7" stroke-linecap="round" />
+          `;
+
+          // Display visual height difference tag
+          if (Math.abs(assessment.diff) > 0.5) {
+            const topY = bsRail_leg1_top.y;
+            const textX = project3D(255 + dx3d, 115, (assessment.optimalArmrestHeight + armrestHeight)/2 * scale).x + 15;
+            svgHTML += `
+              <line x1="${textX}" y1="${optimalY}" x2="${textX}" y2="${topY}" stroke="#f43f5e" stroke-width="1" stroke-dasharray="1 2" />
+              <rect x="${textX + 3}" y="${(optimalY + topY)/2 - 7}" width="34" height="14" rx="3" fill="#ffe4e6" stroke="#f43f5e" stroke-width="1" />
+              <text x="${textX + 20}" y="${(optimalY + topY)/2 + 3}" fill="#ef4444" font-size="8" font-family="monospace" font-weight="bold" text-anchor="middle">${assessment.diff > 0?'++':''}${Math.round(assessment.diff)}</text>
+            `;
+          }
+        }
+
+        // Circular knee range indicators
+        if (coords.knee) {
+          svgHTML += `<circle cx="${coords.knee.x}" cy="${coords.knee.y}" r="11" fill="none" stroke="#22d3ee" stroke-width="1" stroke-dasharray="2 3" opacity="0.5" />`;
+        }
+
+        // Stick figure foreground human character
+        svgHTML += `
+          <!-- Neck -->
+          <line x1="${coords.shoulder.x}" y1="${coords.shoulder.y}" x2="${coords.head.x + (coords.shoulder.x - coords.head.x)*0.2}" y2="${coords.head.y + (coords.shoulder.y - coords.head.y)*0.2}" stroke="#0ea5e9" stroke-width="5" stroke-linecap="round" />
+          <!-- Torso -->
+          <line x1="${coords.hip.x}" y1="${coords.hip.y}" x2="${coords.shoulder.x}" y2="${coords.shoulder.y}" stroke="#0ea5e9" stroke-width="7.5" stroke-linecap="round" />
+          <!-- Arm UPPER -->
+          <line x1="${coords.shoulder.x}" y1="${coords.shoulder.y}" x2="${coords.elbow.x}" y2="${coords.elbow.y}" stroke="#38bdf8" stroke-width="5" stroke-linecap="round" />
+          <!-- Arm FOREARM -->
+          <line x1="${coords.elbow.x}" y1="${coords.elbow.y}" x2="${coords.hand.x}" y2="${coords.hand.y}" stroke="#38bdf8" stroke-width="4.5" stroke-linecap="round" />
+          <!-- Thigh (Ipsilateral) -->
+          <line x1="${coords.hip.x}" y1="${coords.hip.y}" x2="${coords.knee.x}" y2="${coords.knee.y}" stroke="#0ea5e9" stroke-width="6.5" stroke-linecap="round" />
+          <!-- Shin (Ipsilateral) -->
+          <line x1="${coords.knee.x}" y1="${coords.knee.y}" x2="${coords.ankle.x}" y2="${coords.ankle.y}" stroke="#38bdf8" stroke-width="5.5" stroke-linecap="round" />
+          <!-- Foot (Ipsilateral) -->
+          <line x1="${coords.ankle.x}" y1="${coords.ankle.y}" x2="${coords.footTip.x}" y2="${coords.footTip.y}" stroke="#38bdf8" stroke-width="7" stroke-linecap="round" />
+          <!-- Circular Head -->
+          <circle cx="${coords.head.x}" cy="${coords.head.y}" r="${headRadius}" fill="#7dd3fc" stroke="#0284c7" stroke-width="1.8" />
+          <circle cx="${coords.head.x + headRadius * 0.45}" cy="${coords.head.y - headRadius * 0.18}" r="2" fill="#0369a1" />
+          
+          <!-- Joints nodes -->
+          <circle cx="${coords.shoulder.x}" cy="${coords.shoulder.y}" r="4" fill="#ffffff" stroke="#0284c7" stroke-width="1.2" />
+          <circle cx="${coords.elbow.x}" cy="${coords.elbow.y}" r="3" fill="#ffffff" stroke="#38bdf8" stroke-width="1" />
+          <circle cx="${coords.hand.x}" cy="${coords.hand.y}" r="3.5" fill="#38bdf8" />
+          <circle cx="${coords.hip.x}" cy="${coords.hip.y}" r="4.5" fill="#ffffff" stroke="#0284c7" stroke-width="1.2" />
+          <circle cx="${coords.knee.x}" cy="${coords.knee.y}" r="4" fill="#ffffff" stroke="#0284c7" stroke-width="1.2" />
+          <circle cx="${coords.ankle.x}" cy="${coords.ankle.y}" r="3.5" fill="#ffffff" stroke="#38bdf8" stroke-width="1" />
+        `;
+
+        document.getElementById('simSvg').innerHTML = svgHTML;
+
+        // Side listings
+        renderDataPanel(assessment, coords);
+        renderAssessmentWarnings(assessment);
+      }
+
+      // 11. Toast notifier
+      function showNotification(msg, type) {
+        const banner = document.getElementById('notificationBanner');
+        const icon = document.getElementById('notificationIcon');
+        const text = document.getElementById('notificationText');
+        text.innerText = msg;
+        
+        if (type === 'success') {
+          icon.className = 'p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400';
+          icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>`;
+          banner.className = 'absolute top-4 left-4 right-4 bg-emerald-950/95 border border-emerald-500/40 p-3.5 rounded-xl shadow-2xl transition-all duration-300 opacity-100 transform translate-y-0 z-20 flex items-center gap-3';
+        } else if (type === 'error') {
+          icon.className = 'p-1.5 rounded-lg bg-rose-500/20 text-rose-400';
+          icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>`;
+          banner.className = 'absolute top-4 left-4 right-4 bg-rose-950/95 border border-rose-500/40 p-3.5 rounded-xl shadow-2xl transition-all duration-300 opacity-100 transform translate-y-0 z-20 flex items-center gap-3';
+        } else {
+          icon.className = 'p-1.5 rounded-lg bg-amber-500/20 text-amber-400';
+          icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>`;
+          banner.className = 'absolute top-4 left-4 right-4 bg-amber-950/95 border border-amber-500/40 p-3.5 rounded-xl shadow-2xl transition-all duration-300 opacity-100 transform translate-y-0 z-20 flex items-center gap-3';
+        }
+        
+        if (state.notificationTimeout) clearTimeout(state.notificationTimeout);
+        state.notificationTimeout = setTimeout(() => {
+          banner.className = 'absolute top-4 left-4 right-4 bg-slate-950/90 border border-slate-800 p-3 rounded-xl shadow-2xl transition-all duration-300 opacity-0 pointer-events-none transform -translate-y-2 z-20 flex items-center gap-3';
+        }, 5000);
+      }
+
+      // 12. Lock / Unlock State helpers
+      function resetTestStates(message = null) {
+        state.progress = 0.0;
+        state.stage1Succeeded = false;
+        state.stage2Succeeded = false;
+        state.isPlaying = false;
+        if (state.animationFrameId) cancelAnimationFrame(state.animationFrameId);
+
+        // Lock Button 2
+        const btn2 = document.getElementById('btnTestStage2');
+        btn2.disabled = true;
+        btn2.className = "flex-1 flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-850/40 text-slate-500 text-xs font-semibold rounded-xl border border-slate-800/80 cursor-not-allowed transition-all opacity-60";
+        btn2.innerHTML = `<span>🔒 階段二：坐姿起立測試 (等階段一完成)</span>`;
+
+        // Reset Button 1 text
+        const btn1 = document.getElementById('btnTestStage1');
+        btn1.className = "flex-1 flex items-center justify-center gap-2 px-6 py-3.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-md transition-all outline-none";
+        btn1.innerHTML = `<span>🔘 階段一：側臥坐起測試</span>`;
+
+        document.getElementById('progressTrack').style.width = '0%';
+
+        if (message) showNotification(message, 'warning');
+        updateUIElements();
+      }
+
+      function unlockStage2() {
+        const btn2 = document.getElementById('btnTestStage2');
+        btn2.disabled = false;
+        btn2.className = "flex-1 flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-emerald-500/20 transition-all text-white animate-bounce-subtle outline-none";
+        btn2.innerHTML = `<span>🔘 階段二：坐姿起立測試 (點擊執行)</span>`;
+
+        const btn1 = document.getElementById('btnTestStage1');
+        btn1.className = "flex-1 flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-900/30 text-emerald-400 border border-emerald-500/30 text-xs font-bold rounded-xl transition-all";
+        btn1.innerHTML = `<span>✓ 階段一：側臥起座判定安全</span>`;
+      }
+
+      // 13. Tabs management
+      function selectTab(stage) {
+        state.activeStage = stage;
+        if (stage === 1) {
+          document.getElementById('tabStage1').className = "flex-1 py-2.5 text-center text-xs font-bold rounded-lg transition-all outline-none bg-blue-600 text-white shadow";
+          document.getElementById('tabStage2').className = "flex-1 py-2.5 text-center text-xs font-bold rounded-lg transition-all outline-none text-slate-400 hover:text-slate-200";
+          document.getElementById('groupStage1Sliders').classList.remove('hidden');
+          document.getElementById('groupStage2Sliders').classList.add('hidden');
+          document.getElementById('activeStageLabel').innerText = "階段 1 參數";
+          document.getElementById('activeStageLabel').className = "text-[10px] font-mono text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-md bg-blue-500/5";
+        } else {
+          document.getElementById('tabStage1').className = "flex-1 py-2.5 text-center text-xs font-bold rounded-lg transition-all outline-none text-slate-400 hover:text-slate-200";
+          document.getElementById('tabStage2').className = "flex-1 py-2.5 text-center text-xs font-bold rounded-lg transition-all outline-none bg-emerald-600 text-white shadow";
+          document.getElementById('groupStage1Sliders').classList.add('hidden');
+          document.getElementById('groupStage2Sliders').classList.remove('hidden');
+          document.getElementById('activeStageLabel').innerText = "階段 2 參數";
+          document.getElementById('activeStageLabel').className = "text-[10px] font-mono text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-md bg-emerald-500/5";
+        }
+      }
+
+      // 14. Synchronizing inputs and re-rendering
+      function updateUIElements() {
+        sliders.height.value = state.height;
+        sliders.bedHeight.value = state.bedHeight;
+        sliders.angle.value = state.horizontalArmrestAngle;
+        sliders.elbowHeight.value = state.elbowHeight;
+        sliders.armrestHeight.value = state.armrestHeight;
+
+        document.getElementById('valHeight').innerText = state.height;
+        document.getElementById('valBedHeight').innerText = state.bedHeight;
+        document.getElementById('valAngle').innerText = state.horizontalArmrestAngle;
+        document.getElementById('valElbowHeight').innerText = state.elbowHeight;
+        document.getElementById('valArmrestHeight').innerText = state.armrestHeight;
+
+        document.getElementById('progressTrack').style.width = Math.round(state.progress * 100) + '%';
+        render();
+      }
+
+      // 15. Realtime Testing Animations trigger loop
+      function startStage1Test() {
+        if (state.isPlaying) cancelAnimationFrame(state.animationFrameId);
+        
+        state.activeStage = 1;
+        state.progress = 0.0;
+        state.stage2Succeeded = false;
+        
+        selectTab(1);
+
+        const assessment = assessSettings(state);
+        state.isFailTrack = !assessment.horizontalArmrestAngleIsOptimal;
+        state.isPlaying = true;
+
+        const btn1 = document.getElementById('btnTestStage1');
+        btn1.className = "flex-1 flex items-center justify-center gap-2 px-6 py-3.5 bg-blue-700 text-white text-xs font-bold rounded-xl transition-all opacity-80 cursor-wait";
+        
+        // Disable Button 2 during active trial 1
+        const btn2 = document.getElementById('btnTestStage2');
+        btn2.disabled = true;
+        btn2.className = "flex-1 flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-850/40 text-slate-500 text-xs font-semibold rounded-xl border border-slate-800/80 cursor-not-allowed opacity-60";
+        btn2.innerHTML = `<span>🔒 階段一測試執行中...</span>`;
+
+        animateTest1();
+      }
+
+      function animateTest1() {
+        if (!state.isPlaying) return;
+        state.progress += 0.015;
+        if (state.progress >= 1.0) {
+          state.progress = 1.0;
+          state.isPlaying = false;
+          
+          if (!state.isFailTrack) {
+            state.stage1Succeeded = true;
+            showNotification('✓ 階段一測試成功！起坐手拉把角度合宜，順利畫大曲線骨盆旋轉起座！階段二測試已解鎖。', 'success');
+            unlockStage2();
+          } else {
+            state.stage1Succeeded = false;
+            showNotification('✖ 階段一測試失敗！手拉把裝設角度過斜，向上推起之重力阻力過大，高齡者無法翻轉起座。', 'error');
+            const btn1 = document.getElementById('btnTestStage1');
+            btn1.className = "flex-1 flex items-center justify-center gap-2 px-6 py-3.5 bg-rose-950/40 text-rose-400 border border-rose-500/30 text-xs font-bold rounded-xl transition-all outline-none";
+            btn1.innerHTML = `<span>✗ 階段一：測試未合規 (重新檢驗)</span>`;
+            
+            const btn2 = document.getElementById('btnTestStage2');
+            btn2.innerHTML = `<span>🔒 階段二：坐姿起立測試 (等階段一完成)</span>`;
+          }
+          updateUIElements();
+          return;
+        }
+        
+        // Show active percentages inside button directly!
+        const progressPct = Math.round(state.progress * 100);
+        const btn1 = document.getElementById('btnTestStage1');
+        btn1.innerHTML = `
+          <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          側起拉體中 (${progressPct}%)...
+        `;
+
+        updateUIElements();
+        state.animationFrameId = requestAnimationFrame(animateTest1);
+      }
+
+      function startStage2Test() {
+        if (!state.stage1Succeeded) {
+          showNotification('🔒 請先成功完成【階段一：側臥坐起測試】！', 'warning');
+          return;
+        }
+        if (state.isPlaying) cancelAnimationFrame(state.animationFrameId);
+
+        state.activeStage = 2;
+        state.progress = 0.0;
+        selectTab(2);
+
+        const assessment = assessSettings(state);
+        const isLowBed = state.bedHeight < (state.height * 0.25 - 3);
+        state.isFailTrack = !assessment.isOptimal || isLowBed;
+        state.isPlaying = true;
+
+        const btn2 = document.getElementById('btnTestStage2');
+        btn2.className = "flex-1 flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all opacity-80 cursor-wait";
+
+        animateTest2();
+      }
+
+      function animateTest2() {
+        if (!state.isPlaying) return;
+        state.progress += 0.012;
+        if (state.progress >= 1.0) {
+          state.progress = 1.0;
+          state.isPlaying = false;
+
+          const btn2 = document.getElementById('btnTestStage2');
+          if (!state.isFailTrack) {
+            state.stage2Succeeded = true;
+            showNotification('🎉 完美！兩階段床邊起身動作全數檢驗合格，符合臨床安全與省力力學！', 'success');
+            btn2.className = "flex-1 flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-600/20 text-emerald-400 border border-emerald-500/40 text-xs font-bold rounded-xl transition-all";
+            btn2.innerHTML = `<span>✓ 兩階段安全檢驗完全合格！</span>`;
+          } else {
+            state.stage2Succeeded = false;
+            const isLowBed = state.bedHeight < (state.height * 0.25 - 3);
+            if (isLowBed) {
+              showNotification('✖ 階段二起立失敗！床面設置偏低，下肢臏骨、半月板瞬間剪切力超限，膝軟向後跌墜！', 'error');
+            } else {
+              showNotification('✖ 階段二起立失敗！起身支撐扶手高度偏離，高齡者聳肩向後失去重心！', 'error');
+            }
+            btn2.className = "flex-1 flex items-center justify-center gap-2 px-6 py-3.5 bg-rose-950/40 text-rose-400 border border-rose-500/30 text-xs font-bold rounded-xl transition-all outline-none";
+            btn2.innerHTML = `<span>✗ 階段二：測試未合規 (重新檢驗)</span>`;
+          }
+          updateUIElements();
+          return;
+        }
+
+        const progressPct = Math.round(state.progress * 100);
+        const btn2 = document.getElementById('btnTestStage2');
+        btn2.innerHTML = `
+          <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          重心起立中 (${progressPct}%)...
+        `;
+
+        updateUIElements();
+        state.animationFrameId = requestAnimationFrame(animateTest2);
+      }
+
+      // 16. Initialize applet immediately
+      function initListeners() {
+        // Tab click behavior
+        document.getElementById('tabStage1').addEventListener('click', () => {
+          selectTab(1);
+          resetTestStates();
+        });
+        document.getElementById('tabStage2').addEventListener('click', () => {
+          if (!state.stage1Succeeded) {
+            showNotification('🔒 請先通過階段一側起測試，方可啟用階段二！', 'warning');
+            return;
+          }
+          selectTab(2);
+          updateUIElements();
+        });
+
+        // Fail Check
+        document.getElementById('chkAutoFail').addEventListener('change', (e) => {
+          state.autoFailCheck = e.target.checked;
+          updateUIElements();
+        });
+
+        // Trigger testing actions on the dual clinical buttons
+        document.getElementById('btnTestStage1').addEventListener('click', startStage1Test);
+        document.getElementById('btnTestStage2').addEventListener('click', startStage2Test);
+        document.getElementById('btnResetAll').addEventListener('click', () => {
+          resetTestStates('🔄 重置成功。測試數據與解鎖進度已完全回復初始就緒狀態！');
+        });
+
+        // Slider inputs reset test states automatically when changed!
+        const triggerReset = () => {
+          if (state.stage1Succeeded) {
+            resetTestStates('⚠️ 參數變更，已鎖定階段二，請再次執行階段一臨床測試。');
+          } else {
+            resetTestStates();
+          }
+        };
+
+        sliders.height.addEventListener('input', (e) => {
+          state.height = parseFloat(e.target.value);
+          triggerReset();
+        });
+        sliders.bedHeight.addEventListener('input', (e) => {
+          state.bedHeight = parseFloat(e.target.value);
+          triggerReset();
+        });
+        sliders.angle.addEventListener('input', (e) => {
+          state.horizontalArmrestAngle = parseFloat(e.target.value);
+          triggerReset();
+        });
+        sliders.elbowHeight.addEventListener('input', (e) => {
+          state.elbowHeight = parseFloat(e.target.value);
+          triggerReset();
+        });
+        sliders.armrestHeight.addEventListener('input', (e) => {
+          state.armrestHeight = parseFloat(e.target.value);
+          triggerReset();
+        });
+      }
+
+      window.addEventListener('DOMContentLoaded', () => {
+        initListeners();
+        updateUIElements();
+      });
+    </script>
+  </body>
+</html>
